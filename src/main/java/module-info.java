@@ -1,8 +1,5 @@
-module com.example.realipcapmodel {
+module RealIPCapModel {
     requires javafx.controls;
     requires javafx.fxml;
-
-
-    opens com.example.realipcapmodel to javafx.fxml;
-    exports com.example.realipcapmodel;
+    exports simulator;
 }

@@ -1,3 +1,4 @@
+package simulator;
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -145,10 +146,10 @@ import java.util.*;
 
             String[][] weights = {
                     {"hsPerformance", "HS Performance", "0.25"},
-                    {"wagePremium", "Wage Premium", "0.30"},
+                    {"wagePremium", "Wage Premium", "0.15"},  // Changed from 0.30
                     {"fieldJobAvailability", "Field/Job Availability", "0.20"},
                     {"opportunityCost", "Opportunity Cost", "0.15"},
-                    {"culturalPolitical", "Cultural/Political", "0.10"}
+                    {"culturalPolitical", "Cultural/Political", "0.25"}  // Changed from 0.10
             };
 
             for (int i = 0; i < weights.length; i++) {
@@ -245,8 +246,9 @@ import java.util.*;
         private VBox createProjectionChart() {
             VBox section = createSection("Enrollment Projection");
 
-            NumberAxis xAxis = new NumberAxis();
+            NumberAxis xAxis = new NumberAxis(1980,2055,5);
             xAxis.setLabel("Year");
+            xAxis.setAutoRanging(false);
             NumberAxis yAxis = new NumberAxis(0, 100, 10);
             yAxis.setLabel("Enrollment %");
 
@@ -396,10 +398,10 @@ import java.util.*;
 
             EnrollmentModel() {
                 factors.put("hsPerformance", new HSPerformanceFactor(0.25, 1.0));
-                factors.put("wagePremium", new WagePremiumFactor(0.30, 1.0, 1.0));
+                factors.put("wagePremium", new WagePremiumFactor(0.15, 1.0, 1.0));  // Reduced from 0.30 to 0.15
                 factors.put("fieldJobAvailability", new FieldJobAvailabilityFactor(0.20, 1.0, 1.0));
                 factors.put("opportunityCost", new OpportunityCostFactor(0.15, 1.0, 1.0));
-                factors.put("culturalPolitical", new CulturalPoliticalFactor(0.10, 1.0));
+                factors.put("culturalPolitical", new CulturalPoliticalFactor(0.25, 1.0));  // Increased from 0.10 to 0.25c
             }
 
             EnrollmentResult calculateEnrollment(int year) {
@@ -407,7 +409,8 @@ import java.util.*;
                 for (Factor f : factors.values()) {
                     totalGap += f.calculateEffect(historicalData, year);
                 }
-
+                double yearFactor = Math.min(1.0, (year - 1980) / 20.0); // Ramp up over 20 years
+                totalGap = totalGap * 0.55 * yearFactor;
                 double female = baseFemale + totalGap;
                 double male = baseMale - totalGap;
                 double total = female + male;
