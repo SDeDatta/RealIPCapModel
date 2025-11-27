@@ -148,7 +148,6 @@ import java.util.*;
                     {"hsPerformance", "HS Performance", "0.25"},
                     {"wagePremium", "Wage Premium", "0.15"},  // Changed from 0.30
                     {"fieldJobAvailability", "Field/Job Availability", "0.20"},
-                    {"opportunityCost", "Opportunity Cost", "0.15"},
                     {"culturalPolitical", "Cultural/Political", "0.25"}  // Changed from 0.10
             };
 
@@ -316,7 +315,6 @@ import java.util.*;
             simulator.model.setFactorWeight("hsPerformance", weightSliders.get("hsPerformance").getValue());
             simulator.model.setFactorWeight("wagePremium", weightSliders.get("wagePremium").getValue());
             simulator.model.setFactorWeight("fieldJobAvailability", weightSliders.get("fieldJobAvailability").getValue());
-            simulator.model.setFactorWeight("opportunityCost", weightSliders.get("opportunityCost").getValue());
             simulator.model.setFactorWeight("culturalPolitical", weightSliders.get("culturalPolitical").getValue());
 
             // Update factor multipliers
@@ -325,8 +323,6 @@ import java.util.*;
             simulator.model.setFactorMultiplier("wagePremium", "male", factorSliders.get("wagePremiumMale").getValue());
             simulator.model.setFactorMultiplier("fieldJobAvailability", "healthcare", factorSliders.get("healthcareGrowth").getValue());
             simulator.model.setFactorMultiplier("fieldJobAvailability", "stem", factorSliders.get("stemGrowth").getValue());
-            simulator.model.setFactorMultiplier("opportunityCost", "construction", factorSliders.get("constructionJobs").getValue());
-            simulator.model.setFactorMultiplier("opportunityCost", "manufacturing", factorSliders.get("manufacturingJobs").getValue());
             simulator.model.setFactorMultiplier("culturalPolitical", null, factorSliders.get("culturalShift").getValue());
 
             // Run projection
@@ -358,7 +354,6 @@ import java.util.*;
             weightSliders.get("hsPerformance").setValue(0.25);
             weightSliders.get("wagePremium").setValue(0.30);
             weightSliders.get("fieldJobAvailability").setValue(0.20);
-            weightSliders.get("opportunityCost").setValue(0.15);
             weightSliders.get("culturalPolitical").setValue(0.10);
 
             for (Slider slider : factorSliders.values()) {
@@ -400,7 +395,6 @@ import java.util.*;
                 factors.put("hsPerformance", new HSPerformanceFactor(0.25, 1.0));
                 factors.put("wagePremium", new WagePremiumFactor(0.15, 1.0, 1.0));  // Reduced from 0.30 to 0.15
                 factors.put("fieldJobAvailability", new FieldJobAvailabilityFactor(0.20, 1.0, 1.0));
-                factors.put("opportunityCost", new OpportunityCostFactor(0.15, 1.0, 1.0));
                 factors.put("culturalPolitical", new CulturalPoliticalFactor(0.25, 1.0));  // Increased from 0.10 to 0.25c
             }
 
@@ -441,11 +435,7 @@ import java.util.*;
                     FieldJobAvailabilityFactor fjf = (FieldJobAvailabilityFactor)f;
                     if ("healthcare".equals(type)) fjf.healthcareMultiplier = value;
                     else if ("stem".equals(type)) fjf.stemMultiplier = value;
-                } else if (f instanceof OpportunityCostFactor) {
-                    OpportunityCostFactor ocf = (OpportunityCostFactor)f;
-                    if ("construction".equals(type)) ocf.constructionMultiplier = value;
-                    else if ("manufacturing".equals(type)) ocf.manufacturingMultiplier = value;
-                } else if (f instanceof CulturalPoliticalFactor) {
+                }  else if (f instanceof CulturalPoliticalFactor) {
                     ((CulturalPoliticalFactor)f).multiplier = value;
                 }
             }
@@ -491,7 +481,11 @@ import java.util.*;
             double calculateEffect(HistoricalData data, int year) {
                 double femaleHS = data.interpolate("hsGraduation", "female", year);
                 double maleHS = data.interpolate("hsGraduation", "male", year);
-                return ((femaleHS - maleHS) / 100.0) * multiplier * weight;
+
+                // HS graduation is a hard prerequisite - amplify its effect
+                // A 7-point HS gap should translate to larger college gap
+                double hsGap = (femaleHS - maleHS) / 100.0;
+                return hsGap * multiplier * weight * 2.5;  // Amplification factor
             }
         }
 
@@ -524,22 +518,6 @@ import java.util.*;
             }
         }
 
-        static class OpportunityCostFactor extends Factor {
-            double constructionMultiplier, manufacturingMultiplier;
-            OpportunityCostFactor(double w, double cm, double mm) {
-                super(w, 1.0); constructionMultiplier = cm; manufacturingMultiplier = mm;
-            }
-            double calculateEffect(HistoricalData data, int year) {
-                double mfg1980 = data.interpolate("jobGrowth", "manufacturing", 1980);
-                double mfg2024 = data.interpolate("jobGrowth", "manufacturing", 2024);
-                double con1980 = data.interpolate("jobGrowth", "construction", 1980);
-                double con2024 = data.interpolate("jobGrowth", "construction", 2024);
-
-                double mfgChange = ((mfg2024 - mfg1980) / mfg1980) * manufacturingMultiplier;
-                double conChange = ((con2024 - con1980) / con1980) * constructionMultiplier;
-                return -(mfgChange + conChange) * 0.1 * weight;
-            }
-        }
 
         static class CulturalPoliticalFactor extends Factor {
             CulturalPoliticalFactor(double w, double m) { super(w, m); }
