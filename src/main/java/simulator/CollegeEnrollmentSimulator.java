@@ -145,10 +145,10 @@ import java.util.*;
             grid.setPadding(new Insets(10));
 
             String[][] weights = {
-                    {"hsPerformance", "HS Performance", "0.25"},
-                    {"wagePremium", "Wage Premium", "0.15"},  // Changed from 0.30
-                    {"fieldJobAvailability", "Field/Job Availability", "0.20"},
-                    {"culturalPolitical", "Cultural/Political", "0.25"}  // Changed from 0.10
+                    {"hsPerformance", "HS Performance", "0.28"},
+                    {"wagePremium", "Wage Premium", "0.22"},
+                    {"fieldJobAvailability", "Field/Job Availability", "0.15"},  // CHANGED
+                    {"culturalPolitical", "Cultural/Political", "0.35"}
             };
 
             for (int i = 0; i < weights.length; i++) {
@@ -189,8 +189,7 @@ import java.util.*;
                     {"wagePremiumMale", "Male Wage Premium"},
                     {"healthcareGrowth", "Healthcare Growth"},
                     {"stemGrowth", "STEM Growth"},
-                    {"constructionJobs", "Construction Jobs"},
-                    {"manufacturingJobs", "Manufacturing Jobs"},
+                    {"nonCollegeMaleJobs", "Non-College Male Job Availability"},  // NEW COMBINED SLIDER
                     {"culturalShift", "Cultural Shift"}
             };
 
@@ -263,8 +262,10 @@ import java.util.*;
         private VBox createHistoricalChart() {
             VBox section = createSection("Historical Data (1980-2024)");
 
-            NumberAxis xAxis = new NumberAxis();
+            NumberAxis xAxis = new NumberAxis(1980, 2024, 5);  // CHANGED: min=1980, max=2024, tick=5
             xAxis.setLabel("Year");
+            xAxis.setAutoRanging(false);  // ADDED: disable auto-ranging
+
             NumberAxis yAxis = new NumberAxis(0, 100, 10);
             yAxis.setLabel("Enrollment %");
 
@@ -324,6 +325,7 @@ import java.util.*;
             simulator.model.setFactorMultiplier("fieldJobAvailability", "healthcare", factorSliders.get("healthcareGrowth").getValue());
             simulator.model.setFactorMultiplier("fieldJobAvailability", "stem", factorSliders.get("stemGrowth").getValue());
             simulator.model.setFactorMultiplier("culturalPolitical", null, factorSliders.get("culturalShift").getValue());
+            simulator.model.setNonCollegeMaleJobMultiplier(factorSliders.get("nonCollegeMaleJobs").getValue());
 
             // Run projection
             int years = (int) projectionYearsSlider.getValue();
@@ -351,10 +353,10 @@ import java.util.*;
         }
 
         private void resetToDefaults() {
-            weightSliders.get("hsPerformance").setValue(0.25);
-            weightSliders.get("wagePremium").setValue(0.30);
-            weightSliders.get("fieldJobAvailability").setValue(0.20);
-            weightSliders.get("culturalPolitical").setValue(0.10);
+            weightSliders.get("hsPerformance").setValue(0.28);           // CHANGED from 0.25
+            weightSliders.get("wagePremium").setValue(0.22);             // CHANGED from 0.30
+            weightSliders.get("fieldJobAvailability").setValue(0.15);    // CHANGED from 0.20
+            weightSliders.get("culturalPolitical").setValue(0.35);       // CHANGED from 0.10
 
             for (Slider slider : factorSliders.values()) {
                 slider.setValue(1.0);
@@ -390,21 +392,54 @@ import java.util.*;
             Map<String, Factor> factors = new HashMap<>();
             double baseFemale = 0.50;
             double baseMale = 0.50;
+            double nonCollegeMaleJobMultiplier = 1.0;
+
+            void setNonCollegeMaleJobMultiplier(double multiplier) {
+                this.nonCollegeMaleJobMultiplier = multiplier;
+            }
 
             EnrollmentModel() {
-                factors.put("hsPerformance", new HSPerformanceFactor(0.25, 1.0));
-                factors.put("wagePremium", new WagePremiumFactor(0.15, 1.0, 1.0));  // Reduced from 0.30 to 0.15
-                factors.put("fieldJobAvailability", new FieldJobAvailabilityFactor(0.20, 1.0, 1.0));
-                factors.put("culturalPolitical", new CulturalPoliticalFactor(0.25, 1.0));  // Increased from 0.10 to 0.25c
+                factors.put("hsPerformance", new HSPerformanceFactor(0.28, 1.0));
+                factors.put("wagePremium", new WagePremiumFactor(0.22, 1.0, 1.0));
+                factors.put("fieldJobAvailability", new FieldJobAvailabilityFactor(0.15, 1.0, 1.0));
+                factors.put("culturalPolitical", new CulturalPoliticalFactor(0.30, 1.0));
             }
+
 
             EnrollmentResult calculateEnrollment(int year) {
                 double totalGap = 0;
                 for (Factor f : factors.values()) {
                     totalGap += f.calculateEffect(historicalData, year);
                 }
-                double yearFactor = Math.min(1.0, (year - 1980) / 20.0); // Ramp up over 20 years
-                totalGap = totalGap * 0.55 * yearFactor;
+
+                double yearFactor;
+                if (year < 2000) {
+                    yearFactor = Math.pow((year - 1980) / 20.0, 0.7);
+                } else {
+                    yearFactor = 1.0;
+                }
+
+                totalGap = totalGap * 0.38 * yearFactor;
+
+                // Apply non-college male job availability effect
+                // Calculate historical job availability (baseline = 23.8M in 1980)
+                double jobsHistorical = historicalData.interpolate("jobGrowth", "nonCollegeMale", year);
+                double jobsBaseline = 23.8;  // 1980 baseline
+                double jobAvailabilityRatio = jobsHistorical / jobsBaseline;  // < 1.0 means fewer jobs
+
+                // Adjust based on user multiplier
+                // If multiplier = 1.0: use historical data
+                // If multiplier = 1.5: simulate 50% MORE job availability than historical
+                // If multiplier = 0.5: simulate 50% LESS job availability than historical
+                jobAvailabilityRatio = jobAvailabilityRatio * nonCollegeMaleJobMultiplier;
+
+                // Effect on male enrollment:
+                // More jobs available (ratio > 1.0) → fewer men attend college → widens gap
+                // Fewer jobs available (ratio < 1.0) → more men attend college → narrows gap
+                double jobEffect = (jobAvailabilityRatio - 1.0) * 0.08;  // Scales the impact
+
+                totalGap = totalGap + jobEffect;
+
                 double female = baseFemale + totalGap;
                 double male = baseMale - totalGap;
                 double total = female + male;
@@ -461,6 +496,7 @@ import java.util.*;
                 data.put("jobGrowth.stem", new double[]{7.0, 10.78});
                 data.put("jobGrowth.manufacturing", new double[]{19.3, 13.0});
                 data.put("jobGrowth.construction", new double[]{4.5, 8.1});
+                data.put("jobGrowth.nonCollegeMale", new double[]{23.8, 21.1});  // ADD THIS LINE (Mfg + Const combined)
                 data.put("political.femaleLiberalShare", new double[]{20, 44});
 
                 String key = factor + "." + subType;
@@ -522,9 +558,17 @@ import java.util.*;
         static class CulturalPoliticalFactor extends Factor {
             CulturalPoliticalFactor(double w, double m) { super(w, m); }
             double calculateEffect(HistoricalData data, int year) {
-                double growth = (data.interpolate("political", "femaleLiberalShare", 2024) -
-                        data.interpolate("political", "femaleLiberalShare", 1980)) / 100.0;
-                return growth * multiplier * 0.5 * weight;
+                // Political liberalization gender gap (ONLY METRIC)
+                // Female: 20% → 44% (+24 points)
+                // Male: 23% → 32% (+9 points)
+                // Differential: 15 points
+                double liberalGap = ((44 - 20) - (32 - 23)) / 100.0;  // 0.15
+
+                // Focus entirely on political liberalization as cultural proxy
+                // This captures: views on gender roles, educational values,
+                // progressive vs traditional attitudes toward career/education
+                double totalCultural = liberalGap * 2.0;  // Amplify to maintain similar effect
+                return totalCultural * multiplier * weight * 0.6;
             }
         }
     }
