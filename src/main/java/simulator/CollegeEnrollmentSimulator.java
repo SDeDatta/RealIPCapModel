@@ -82,7 +82,6 @@ import java.util.*;
 
             // Charts
             content.getChildren().add(createProjectionChart());
-            content.getChildren().add(createHistoricalChart());
 
             scrollPane.setContent(content);
             root.setCenter(scrollPane);
@@ -256,46 +255,6 @@ import java.util.*;
             projectionChart.setCreateSymbols(false);
 
             section.getChildren().add(projectionChart);
-            return section;
-        }
-
-        private VBox createHistoricalChart() {
-            VBox section = createSection("Historical Data (1980-2024)");
-
-            NumberAxis xAxis = new NumberAxis(1980, 2024, 5);  // CHANGED: min=1980, max=2024, tick=5
-            xAxis.setLabel("Year");
-            xAxis.setAutoRanging(false);  // ADDED: disable auto-ranging
-
-            NumberAxis yAxis = new NumberAxis(0, 100, 10);
-            yAxis.setLabel("Enrollment %");
-
-            historicalChart = new LineChart<>(xAxis, yAxis);
-            historicalChart.setTitle("Actual Historical Enrollment");
-            historicalChart.setPrefHeight(250);
-            historicalChart.setCreateSymbols(true);
-
-            // Populate with historical data
-            XYChart.Series<Number, Number> femaleSeries = new XYChart.Series<>();
-            femaleSeries.setName("Female %");
-            XYChart.Series<Number, Number> maleSeries = new XYChart.Series<>();
-            maleSeries.setName("Male %");
-
-            double[][] historicalData = {
-                    {1980, 50.3, 49.7},
-                    {1990, 53.4, 46.6},
-                    {2000, 57.7, 42.3},
-                    {2010, 58.6, 41.4},
-                    {2020, 58.5, 41.5},
-                    {2024, 59.4, 40.6}
-            };
-
-            for (double[] data : historicalData) {
-                femaleSeries.getData().add(new XYChart.Data<>(data[0], data[1]));
-                maleSeries.getData().add(new XYChart.Data<>(data[0], data[2]));
-            }
-
-            historicalChart.getData().addAll(femaleSeries, maleSeries);
-            section.getChildren().add(historicalChart);
             return section;
         }
 
