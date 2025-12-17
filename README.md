@@ -12,7 +12,7 @@ college enrollment gender gap over time.
    - JavaFX SDK (https://gluonhq.com/products/javafx/)
 
 2. Clone this repository:
-   git clone https://github.com/SDeDatta/RealIPCapModel
+   Paste this link where it says URL: https://github.com/SDeDatta/RealIPCapModel
 
 3. Open the project in IntelliJ:
    - `File → Open…` → select the project folder
